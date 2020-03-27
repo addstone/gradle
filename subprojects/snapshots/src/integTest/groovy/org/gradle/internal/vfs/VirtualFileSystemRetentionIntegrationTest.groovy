@@ -623,11 +623,13 @@ class VirtualFileSystemRetentionIntegrationTest extends AbstractIntegrationSpec 
         executedAndNotSkipped(":myTask")
 
         when:
+        // TODO: There shouldn't be a stacktrace
+        executer.withStackTraceChecksDisabled()
         withRetention().run "myTask"
         then:
         skipped(":myTask")
         if (OperatingSystem.current().linux) {
-            outputContains("Watching not supported, not tracking changes between builds: Unable to watch same file twice via different paths: Already watching path:")
+            outputContains("WatchingNotSupportedException: Error while updating must watch directories")
         }
     }
 

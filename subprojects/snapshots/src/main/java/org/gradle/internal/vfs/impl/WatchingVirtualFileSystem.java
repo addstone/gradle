@@ -100,7 +100,12 @@ public class WatchingVirtualFileSystem extends AbstractDelegatingVirtualFileSyst
     @Override
     public void updateMustWatchDirectories(Collection<File> mustWatchDirectories) {
         if (watchRegistry != null) {
-            watchRegistry.updateMustWatchDirectories(mustWatchDirectories);
+            try {
+                watchRegistry.updateMustWatchDirectories(mustWatchDirectories);
+            } catch (Exception e) {
+                LOGGER.warn("Failed to update watched directories", e);
+                stopWatching();
+            }
         }
     }
 
