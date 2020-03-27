@@ -148,7 +148,16 @@ public class FxApp extends Application {
         given:
         goodCode()
         buildFile << """
+java.targetCompatibility = JavaVersion.VERSION_1_7 // this will be ignored when compiling, but used for the TargetJvmVersion attribute
 compileJava.options.compilerArgs.addAll(['--release', '8'])
+compileJava {
+    doFirst {
+        assert configurations.apiElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 7
+        assert configurations.runtimeElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 7
+        assert configurations.compileClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 7
+        assert configurations.runtimeClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 7
+    }
+}
 """
 
         expect:
@@ -161,7 +170,18 @@ compileJava.options.compilerArgs.addAll(['--release', '8'])
         given:
         goodCode()
         buildFile << """
+java.targetCompatibility = JavaVersion.VERSION_1_7 // ignored
+java.release.set(6) // ignored
+compileJava.targetCompatibility = '10' // ignored
 compileJava.release.set(8)
+compileJava {
+    doFirst {
+        assert configurations.apiElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.runtimeElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.compileClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.runtimeClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+    }
+}
 """
 
         expect:
@@ -174,7 +194,41 @@ compileJava.release.set(8)
         given:
         goodCode()
         buildFile << """
+java.targetCompatibility = JavaVersion.VERSION_1_7 // ignored
+compileJava.targetCompatibility = '10' // ignored
 java.release.set(8)
+compileJava {
+    doFirst {
+        assert configurations.apiElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.runtimeElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.compileClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.runtimeClasspath.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+    }
+}
+"""
+
+        expect:
+        succeeds 'compileJava'
+        bytecodeVersion() == 52
+    }
+
+    @Requires(TestPrecondition.JDK9_OR_LATER)
+    def "compile with release property and autoTargetJvmDisabled"() {
+        given:
+        goodCode()
+        buildFile << """
+java.targetCompatibility = JavaVersion.VERSION_1_7 // ignored
+compileJava.targetCompatibility = '10' // ignored
+java.release.set(8)
+java.disableAutoTargetJvm()
+compileJava {
+    doFirst {
+        assert configurations.apiElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert configurations.runtimeElements.attributes.getAttribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE) == 8
+        assert !configurations.compileClasspath.attributes.contains(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE)
+        assert !configurations.runtimeClasspath.attributes.contains(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE)
+    }
+}
 """
 
         expect:
