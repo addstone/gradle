@@ -157,8 +157,8 @@ public class WatchingVirtualFileSystem extends AbstractDelegatingVirtualFileSyst
                 @Override
                 public void handleLostState() {
                     LOGGER.warn("Dropped VFS state due to lost state");
-                    invalidateAll();
                     stopWatching();
+                    invalidateAll();
                 }
             });
             this.watchRegistry = new ThreadedFileWatcherRegistry(delegate);

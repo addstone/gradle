@@ -23,14 +23,21 @@ import org.gradle.internal.vfs.watch.WatchingNotSupportedException;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 public class ThreadedFileWatcherRegistry implements FileWatcherRegistry {
 
     private final FileWatcherRegistry delegate;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private volatile boolean closed;
 
     public ThreadedFileWatcherRegistry(FileWatcherRegistry delegate) {
         this.delegate = delegate;
@@ -39,10 +46,21 @@ public class ThreadedFileWatcherRegistry implements FileWatcherRegistry {
     @Override
     public void updateMustWatchDirectories(Collection<File> updatedWatchDirectories) {
         try {
-            executorService.submit(() -> delegate.updateMustWatchDirectories(updatedWatchDirectories)).get(1, TimeUnit.SECONDS);
+            submitAction(watcher -> watcher.updateMustWatchDirectories(updatedWatchDirectories)).get(1, TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new WatchingNotSupportedException("Error while updating must watch directories", e);
         }
+    }
+
+    private Future<?> submitAction(Consumer<FileWatcherRegistry> action) {
+        if (closed) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return executorService.submit(() -> {
+            if (!closed) {
+                action.accept(delegate);
+            }
+        });
     }
 
     @Override
@@ -52,17 +70,21 @@ public class ThreadedFileWatcherRegistry implements FileWatcherRegistry {
 
     @Override
     public void close() throws IOException {
-        executorService.shutdown();
-        delegate.close();
+        closed = true;
         try {
+            executorService.submit(() -> {
+                delegate.close();
+                return null;
+            }).get(5, TimeUnit.SECONDS);
+            executorService.shutdown();
             executorService.awaitTermination(1, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException("Failed to stop executer service");
         }
     }
 
     @Override
     public void changed(Collection<FileSystemNode> removedNodes, Collection<FileSystemNode> addedNodes) {
-        executorService.submit(() -> delegate.changed(removedNodes, addedNodes));
+        submitAction(watcher -> watcher.changed(removedNodes, addedNodes));
     }
 }
