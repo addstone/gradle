@@ -46,7 +46,7 @@ public class ThreadedFileWatcherRegistry implements FileWatcherRegistry {
     @Override
     public void updateMustWatchDirectories(Collection<File> updatedWatchDirectories) {
         try {
-            submitAction(watcher -> watcher.updateMustWatchDirectories(updatedWatchDirectories)).get(1, TimeUnit.SECONDS);
+            submitAction(watcher -> watcher.updateMustWatchDirectories(updatedWatchDirectories)).get(20, TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new WatchingNotSupportedException("Error while updating must watch directories", e);
         }
@@ -75,9 +75,9 @@ public class ThreadedFileWatcherRegistry implements FileWatcherRegistry {
             executorService.submit(() -> {
                 delegate.close();
                 return null;
-            }).get(5, TimeUnit.SECONDS);
+            }).get(20, TimeUnit.SECONDS);
             executorService.shutdown();
-            executorService.awaitTermination(1, TimeUnit.SECONDS);
+            executorService.awaitTermination(20, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException("Failed to stop executer service");
         }
